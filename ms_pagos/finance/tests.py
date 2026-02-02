@@ -54,3 +54,81 @@ class WalletServiceTests(TestCase):
         """No permitir recargas ni pagos negativos"""
         with self.assertRaises(ValidationError):
             execute_recharge(self.user_id, -50.00, "YAPE")
+
+
+from django.urls import reverse
+from rest_framework import status
+from rest_framework.test import APITestCase
+from .models import Wallet, Transaction
+
+class WalletIntegrationTests(APITestCase):
+    
+    def setUp(self):
+        # Preparamos el terreno: Creamos una billetera inicial
+        self.user_id = "TEST001"
+        self.wallet = Wallet.objects.create(user_id=self.user_id, balance=0)
+        
+        self.url_recharge = reverse('recharge') 
+        self.url_pay = reverse('pay')
+
+    def test_recharge_endpoint_success(self):
+        """
+        Prueba todo el flujo: HTTP -> URL -> Vista -> Serializer -> Servicio
+        """
+        data = {
+            "user_id": self.user_id,
+            "amount": 100.00,
+            "payment_method": "YAPE"
+        }
+
+        # 2. El cliente hace el POST
+        response = self.client.post(self.url_recharge, data, format='json')
+
+        # 3. Validaciones de la Capa HTTP
+        # ¿El código de estado es 200 OK?
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        
+        # ¿El JSON de respuesta tiene los datos correctos?
+        self.assertEqual(response.data['status'], 'COMPLETADO')
+        self.assertEqual(float(response.data['amount']), 100.00)
+
+        # 4. Validaciones de la Base de Datos (Efecto real)
+        self.wallet.refresh_from_db()
+        self.assertEqual(self.wallet.balance, 100.00)
+
+    def test_recharge_invalid_data(self):
+        """
+        Prueba que el Serializer detenga datos basura (Validation Error)
+        """
+        # Enviamos datos incompletos (falta amount)
+        data = {
+            "user_id": self.user_id,
+            # "amount": falta esto a propósito
+        }
+
+        response = self.client.post(self.url_recharge, data, format='json')
+
+        # Esperamos un 400 BAD REQUEST (El Serializer debió gritar)
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        
+        # Verificamos que el serializer reportó qué campo falta
+        self.assertIn('amount', response.data)
+
+    def test_payment_endpoint_insufficient_funds(self):
+        """
+        Prueba que la Vista capture el error lógico y devuelva error HTTP
+        """
+        # Intentamos cobrar 500 (Saldo actual es 0)
+        data = {
+            "user_id": self.user_id,
+            "amount": 500.00
+        }
+
+        response = self.client.post(self.url_pay, data, format='json')
+
+        # Esperamos un 400 porque no hay saldo
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        
+        # Opcional: Verificar que el mensaje de error sea el correcto
+        # (Esto asume que tu vista devuelve {"error": "..."})
+        self.assertIn("error", response.data)
