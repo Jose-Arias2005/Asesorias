@@ -1,12 +1,11 @@
 from django.urls import path
-from .views import WalletView, RechargeView, PaymentView
+from .views import WalletCreateView, WalletDetailView, ChargeView, RechargeView
 
 urlpatterns = [
-    # api/wallet/20231001/
-    path('wallet/<str:user_id>/', WalletView.as_view(), name='get_wallet'),
-    # api/wallet/create/
-    path('wallet/', WalletView.as_view(), name='create_wallet'),
+    path('wallet/', WalletCreateView.as_view(), name='create_wallet'),
+    path('wallet/<str:user_id>/', WalletDetailView.as_view(), name='get_wallet'),
+    
+    path('transaction/charge/', ChargeView.as_view(), name='charge'), 
 
-    path('recharge/', RechargeView.as_view(), name='recharge'),
-    path('pay/', PaymentView.as_view(), name='pay'),
+    path('transaction/deposit/', RechargeView.as_view(), name='deposit'),
 ]
