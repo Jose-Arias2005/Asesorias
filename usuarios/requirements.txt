@@ -1,0 +1,9 @@
+Django>=5.0
+djangorestframework
+django-cors-headers
+djangorestframework-simplejwt
+drf-spectacular
+python-dotenv
+psycopg2-binary
+argon2-cffi
+whitenoise
